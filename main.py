@@ -10,6 +10,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 %matplotlib inline
 
+plt.rcParams['figure.figsize'] = [12,6]
+sns.set(style="darkgrid")
+
 pd.set_option('display.float_format', lambda x: '{:.2f}'.format(x))
 
 #%%
@@ -37,10 +40,10 @@ def counterElements(lista):
     for i, value in enumerate(auxLista):
         
         counter = 0
-        
+
         for j in range(len(lista)):
-            
-            if lista[j] == auxLista[i] or (value == 'NaN' and np.isnan(lista[j])):
+
+            if lista[j] == auxLista[i]:
 
                 counter += 1
     
@@ -51,7 +54,57 @@ def counterElements(lista):
     return dicio
 
 #%%
-X = pd.read_csv('test.csv')
+X = pd.read_csv('train.csv')
+
+# %%
+
+train_ID = X['Id']
+
+X.drop('Id', axis = 1, inplace = True)
+
+# %%
+
+print(X['SalePrice'].describe()['mean'])
+
+#%%
+
+sns.histplot(X['SalePrice'], kde = True)
+
+print('Assimetria: {}'.format(X['SalePrice'].skew()))
+
+print('Curtose: {}'.format(X['SalePrice'].kurt()))
+
+# %%
+
+correlation = X.corr()
+
+mask = np.zeros_like(correlation)
+
+mask[np.triu_indices_from(mask)] = True
+
+with sns.axes_style('white'):
+
+    f, ax = plt.subplots()
+
+    sns.heatmap(correlation, mask = mask, ax = ax, cbar_kws = {'shrink' : .82},
+                vmax = .9, cmap = 'coolwarm', square = True)
+
+# %%
+
+feature = list(correlation.columns)
+
+values = correlation.values
+
+corrList = []
+
+for i, val in enumerate(values[36]):
+
+    if(val > 0.4 and feature[i] != 'SalePrice'):
+
+        corrList.append(feature[i])
+        print('SalePrice and {} correlates with value {}.'.format(feature[i], "{:.2f}".format(val)))
+
+print('Total features related to Saleprice: {}'.format(len(corrList)))
 
 # %%
 
@@ -59,18 +112,16 @@ i = 0
 totalSum = 0
 columnsWNaN = []
 
-for column in X:
-
+for column in corrList:
+    
     nullElements = X[column].isnull().sum()
 
     if(nullElements):
         columnsWNaN.append(column)
-        #print('column {} ({}): {}'.format(i, column, nullElements))
         totalSum+=1
 
-    i+=1
 
-print('there are {} columns with one or more "NaN" as values: {}'.format(totalSum, columnsWNaN))
+print('there are {} relevant columns in with one or more "NaN" as values: {}'.format(totalSum, columnsWNaN))
 
 # %%
 
@@ -84,19 +135,25 @@ for i in columnsWNaN:
     print('{}: {}, {}'.format(i, size, unique_list))
 
 # %%
-percentColumnWNaN = {}
+def createPercentageOfMissingValues(lista = columnsWNaN):
+    percentColumnWNaN = {}
+    totalColumnWNan = {}
 
-for column in columnsWNaN:
+    for column in lista:
 
-    percentColumnWNaN[column] = (X[column].isnull().sum() / len(X[column])) * 100
+        percentColumnWNaN[column] = (X[column].isnull().sum() / len(X[column])) * 100
+        totalColumnWNan[column] = X[column].isnull().sum()
 
-dfPercent = pd.DataFrame(list(percentColumnWNaN.items()), columns = ['Feature', 'Faltantes %'])
+    dfPercent = pd.DataFrame(list(percentColumnWNaN.items()), columns = ['Feature', 'Faltantes %'])
 
-dfPercent = dfPercent.sort_values(by = ['Faltantes %'], ascending = False)
+    dfPercent['Faltantes Total'] = dfPercent['Feature'].map(totalColumnWNan)
 
-print(dfPercent)
+    dfPercent = dfPercent.sort_values(by = ['Faltantes %'], ascending = False)
+
+    return dfPercent
 
 # %%
+dfPercent = createPercentageOfMissingValues(lista = X.columns)
 
 sns.barplot(x = dfPercent['Feature'], y = dfPercent['Faltantes %'])
 plt.xticks(rotation = '90')
@@ -104,32 +161,20 @@ plt.xlabel('Features', fontsize = 15)
 plt.ylabel('% de valores faltantes', fontsize = 15)
 plt.title('Porcentagem de valores faltantes por Feature', fontsize = 15)
 
-# %% tratando os faltantes da feature PoolQC
-print(unique(X['PoolQC']))
 
-X['PoolQC'].fillna('NA', inplace = True)
+#%%
+corrList.append('SalePrice')
 
-# %% tratando os faltantes da feature MiscFeature
+#%%
 
-print(counterElements(X['MiscFeature']))
-print(counterElements(X['MiscVal']))
+sns.set()
 
-X['MiscFeature'].fillna('NA', inplace = True)
+sns.pairplot(X[corrList], height = 2.5, corner = True)
 
-# %% tratando os faltantes da feature Alley
-print(unique(X['Alley']))
+plt.show
 
-X['Alley'].fillna('NA', inplace = True)
+# %% removendo os elementos faltantes da feature GarageYrBlt
 
-# %% tratando os faltantes da feature Fence
-print(unique(X['Fence']))
+#X = X[X.GarageYrBlt.notnull()]
 
-X['Fence'].fillna('NA', inplace = True)
-
-# %%
-print(counterElements(X['Fireplaces']))
-print(counterElements(X['FireplaceQu']))
-
-X['FireplaceQu'].fillna('NA', inplace = True)
-
-# %%
+#print(unique(X['GarageYrBlt']))
